@@ -2,170 +2,203 @@ from flask import Flask, request, jsonify
 from database import get_db_connection
 import sqlite3
 from datetime import datetime
+import werkzeug.serving
 
 app = Flask(__name__)
 
-# Create root endpoint
+# ✅ Security Configurations
+app.config['CSP'] = (
+    "default-src 'self'; "
+    "script-src 'self'; "
+    "style-src 'self'; "
+    "img-src 'self' data:; "
+    "object-src 'none'; "
+    "frame-ancestors 'none'; "
+    "base-uri 'none';"
+)
+
+
+# ✅ Apply Security Headers Globally
+@app.after_request
+def apply_security_headers(response):
+    response.headers["Content-Security-Policy"] = app.config['CSP']
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+# ✅ Suppress "Server" Header
+werkzeug.serving.WSGIRequestHandler.server_version = "Secure-Server"
+werkzeug.serving.WSGIRequestHandler.sys_version = ""
+
+
+# ✅ Define Static Routes
+@app.route('/robots.txt')
+def robots():
+    return "User-agent: *\nDisallow:", 200, {'Content-Type': 'text/plain'}
+
+
+@app.route('/sitemap.xml')
+def sitemap():
+    return "", 200, {'Content-Type': 'application/xml'}
+
+
+# ✅ Helper Functions
+def validate_date(date_str):
+    """Ensures the date format is YYYY-MM-DD and is a valid date."""
+    try:
+        parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
+        return parsed_date.strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+
+def execute_query(query, params=(), fetch_one=False, fetch_all=False, commit=False):
+    """Handles common database interactions."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(query, params)
+        if commit:
+            conn.commit()
+        if fetch_one:
+            return cursor.fetchone()
+        if fetch_all:
+            return cursor.fetchall()
+    except sqlite3.Error as e:
+        conn.rollback()
+        return {"error": f"Database error: {str(e)}"}
+    finally:
+        conn.close()
+
+
+# ✅ Routes
 @app.route('/')
 def home():
     return jsonify({"message": "Expense Tracker API is running"}), 200
 
-# Create (Add Expense)
-from datetime import datetime
 
 @app.route('/expense', methods=['POST'])
 def add_expense():
     data = request.json
-    cost, date, category, description = data['cost'], data['date'], data['category'], data.get('description', '')
+    cost = data.get('cost')
+    date = data.get('date')
+    category = data.get('category')
+    description = data.get('description', '')
 
-    # Handle Unix timestamp (float) and string formats
-    if isinstance(date, (int, float)):
-        date_obj = datetime.fromtimestamp(date)  # Convert Unix timestamp to datetime
-    elif isinstance(date, str):
+    # Ensure required fields are provided
+    if cost is None or date is None or category is None:
+        return jsonify({"error": "Missing required fields: cost, date, category"}), 400
+
+    # Validate date format & ensure it's a real date
+    def validate_date(date_str):
         try:
-            date_obj = datetime.strptime(date, "%Y-%m-%d")  # Default format
+            parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
+            return parsed_date.strftime("%Y-%m-%d")  # Ensure YYYY-MM-DD format
         except ValueError:
-            try:
-                date_obj = datetime.strptime(date, "%Y/%m/%d")  # Alternative format
-            except ValueError:
-                return jsonify({"error": "Invalid date format. Expected YYYY-MM-DD."}), 400
-                return jsonify({"error": "Invalid date format. Expected YYYY-MM-DD."}), 400
+            return None
+
+    # Convert Unix timestamp or validate string date
+    if isinstance(date, (int, float)):
+        formatted_date = datetime.fromtimestamp(date).strftime("%Y-%m-%d")
+    elif isinstance(date, str):
+        formatted_date = validate_date(date)
+        if formatted_date is None:
+            return jsonify({"error": "Invalid date format or non-existent date (e.g., 2025-02-30). Expected YYYY-MM-DD."}), 400
     else:
-        return jsonify({"error": "Invalid date type"}), 400
+        return jsonify({"error": "Invalid date type. Expected string or timestamp."}), 400
 
-    formatted_date = date_obj.strftime("%Y-%m-%d")  # Ensure YYYY-MM-DD format
-
+    # Insert into database
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
                    (cost, formatted_date, category, description))
+    expense_id = cursor.lastrowid
     conn.commit()
+    # 🛠 Debug: Fetch the last inserted expense
+    cursor.execute("SELECT * FROM expenses ORDER BY id DESC LIMIT 1")
+    latest_expense = cursor.fetchone()
+    print("Latest expense in DB:", dict(latest_expense) if latest_expense else "No expense found")
+
     conn.close()
+    return jsonify({"message": "Expense added successfully", "id": expense_id}), 201
 
-    return jsonify({"message": "Expense added successfully"}), 201
 
-
-# Read (Get All Expenses)
 @app.route('/expenses', methods=['GET'])
 def get_expenses():
-    month = request.args.get('month')
-    year = request.args.get('year')
-    category = request.args.get('category')
+    month, year, category = request.args.get('month'), request.args.get('year'), request.args.get('category')
 
     query = "SELECT * FROM expenses WHERE 1=1"
     params = []
 
     if month and year:
         query += " AND date BETWEEN ? AND ?"
-        start_date = f"{year}-{int(month):02d}-01"
-        end_date = f"{year}-{int(month):02d}-31"  # Covers all days in the month
-        params.extend([start_date, end_date])
+        params.extend([f"{year}-{int(month):02d}-01", f"{year}-{int(month):02d}-31"])
 
     if category:
         query += " AND category = ?"
         params.append(category)
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(query, params)
-    expenses = cursor.fetchall()
-    conn.close()
-
+    expenses = execute_query(query, params, fetch_all=True)
     return jsonify([dict(exp) for exp in expenses])
 
 
-
-# Read (Get Monthly Summary)
 @app.route('/summary', methods=['GET'])
 def get_summary():
-    month = request.args.get('month')
-    year = request.args.get('year')
-
+    month, year = request.args.get('month'), request.args.get('year')
     if not month or not year:
         return jsonify({"error": "Month and Year parameters are required"}), 400
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Get expenses grouped by category
-    cursor.execute("""
+    # Get category-wise totals
+    query = """
         SELECT category, SUM(cost) as total_cost 
         FROM expenses 
         WHERE strftime('%m', date) = ? AND strftime('%Y', date) = ?
         GROUP BY category
-    """, (month.zfill(2), year))  # Ensure month is two digits
+    """
+    category_totals = execute_query(query, (month.zfill(2), year), fetch_all=True)
 
-    category_totals = [{"category": row[0], "total_cost": row[1]} for row in cursor.fetchall()]
-
-    # Calculate overall total
-    cursor.execute("""
-        SELECT SUM(cost) as total_cost
-        FROM expenses 
-        WHERE strftime('%m', date) = ? AND strftime('%Y', date) = ?
-    """, (month.zfill(2), year))
-
-    overall_total = cursor.fetchone()[0] or 0  # Fetch value correctly
-
-    conn.close()
+    # Get overall total
+    total_query = "SELECT SUM(cost) as total_cost FROM expenses WHERE strftime('%m', date) = ? AND strftime('%Y', date) = ?"
+    overall_total = execute_query(total_query, (month.zfill(2), year), fetch_one=True)
 
     return jsonify({
-        "category_totals": category_totals,
-        "overall_total": overall_total
-    })
-
-    return jsonify({
-        "category_totals": category_totals,
-        "overall_total": overall_total
+        "category_totals": [{"category": row[0], "total_cost": row[1]} for row in category_totals],
+        "overall_total": overall_total[0] if overall_total else 0
     })
 
 
-# Read (Get Single Expense by ID)
 @app.route('/expense/<int:id>', methods=['GET'])
 def get_expense(id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM expenses WHERE id=?", (id,))
-    expense = cursor.fetchone()
-    conn.close()
+    expense = execute_query("SELECT * FROM expenses WHERE id=?", (id,), fetch_one=True)
+    return jsonify(dict(expense)) if expense else jsonify({"error": "Expense not found"}), 404
 
-    if expense:
-        return jsonify(dict(expense))
-    return jsonify({"error": "Expense not found"}), 404
 
-# Update (Edit Expense)
 @app.route('/expense/<int:id>', methods=['PUT'])
 def update_expense(id):
     data = request.json
-    cost, date, category, description = data['cost'], data['date'], data['category'], data.get('description', '')
+    cost, date, category = data.get('cost'), data.get('date'), data.get('category')
+    description = data.get('description', '')
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE expenses SET cost=?, date=?, category=?, description=? WHERE id=?",
-                   (cost, date, category, description, id))
-    conn.commit()
-    conn.close()
+    if None in [cost, date, category]:
+        return jsonify({"error": "Missing required fields: cost, date, category"}), 400
+
+    formatted_date = validate_date(date) if isinstance(date, str) else datetime.fromtimestamp(date).strftime("%Y-%m-%d")
+    if not formatted_date:
+        return jsonify({"error": "Invalid date format"}), 400
+
+    query = "UPDATE expenses SET cost=?, date=?, category=?, description=? WHERE id=?"
+    execute_query(query, (cost, formatted_date, category, description, id), commit=True)
 
     return jsonify({"message": "Expense updated successfully"})
 
-# Delete (Remove Expense)
+
 @app.route('/expense/<int:id>', methods=['DELETE'])
 def delete_expense(id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    # Check if the ID exists before deleting
-    cursor.execute("SELECT * FROM expenses WHERE id=?", (id,))
-    expense = cursor.fetchone()
-
+    expense = execute_query("SELECT * FROM expenses WHERE id=?", (id,), fetch_one=True)
     if not expense:
-        conn.close()
         return jsonify({"error": f"Expense with ID {id} not found."}), 404
 
-    # Proceed with deletion if ID exists
-    cursor.execute("DELETE FROM expenses WHERE id=?", (id,))
-    conn.commit()
-    conn.close()
-
+    execute_query("DELETE FROM expenses WHERE id=?", (id,), commit=True)
     return jsonify({"message": f"Expense with ID {id} deleted successfully."}), 200
 
 

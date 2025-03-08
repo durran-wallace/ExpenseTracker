@@ -1,0 +1,142 @@
+body, input, textarea, button {
+    font-family: "Century Schoolbook";
+    color: #374151;
+    background-color: #FFFFFF;
+}
+
+h2, h3 {
+  color: #FFFFFF;
+  background-color: #4e86cc;
+  font-family: "Century Schoolbook";
+  padding: 10px 0;
+}
+
+h1 {
+  font-family: 'Century Schoolbook';
+  font-size: 3rem;
+  text-align: center;
+  font-weight: 500;
+  color: white;
+  text-shadow: #374151 2px 2px;
+}
+
+.card {
+  border: 1px solid #FFFFFF;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+/* Buttons */
+button {
+  color: #FFFFFF;
+  background-color: #4e86cc;
+  font-family: 'Century Schoolbook';
+  font-weight: 300;
+  cursor: pointer;
+  width: fit-content;
+  align-self: center;
+  border-radius: 4px;
+  margin-top: 3px;
+  margin-bottom: 3px;
+}
+
+button:hover {
+    background-color: #3a669c;
+    color: #FFFFFF;
+}
+
+/* Inputs */
+input, select, textarea {
+    background-color: white;
+    color: grey;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: black;
+}
+
+body > gradio-app > div {
+    background-color: #aecdf2 ;
+}
+
+#component-9 > div.svelte-1hfxrpf.container > div {
+    background-color: white;
+}
+/*Month Wrapper*/
+#component-16 > div.svelte-1hfxrpf.container > div > div.wrap-inner.svelte-1hfxrpf {
+    background-color: white;
+}
+
+/*Year Wrapper*/
+#component-17 > div.svelte-1hfxrpf.container > div > div.wrap-inner.svelte-1hfxrpf {
+    background-color: white;
+}
+
+/*Category Wrapper*/
+#component-18 > div.svelte-1hfxrpf.container > div > div.wrap-inner.svelte-1hfxrpf {
+    background-color: white;
+}
+
+/*Filter h2 Wrapper*/
+#component-15 > div.html-container.svelte-phx28p.padding {
+    background-color: #4e86cc;
+    padding: 0;
+}
+
+/*Add Expense h2 Wrapper*/
+#component-5 > div.html-container.svelte-phx28p.padding {
+    background-color: #4e86cc;
+    padding: 0;
+}
+
+/*Delete Expense h2 Wrapper*/
+#component-24 > div.html-container.svelte-phx28p.padding{
+    background-color: #4e86cc;
+    padding: 0;
+}
+
+/*Monthly Summary h2 Wrapper*/
+#component-35 > div.html-container.svelte-phx28p.padding {
+    background-color: #4e86cc;
+}
+
+#component-38 > div.html-container.svelte-phx28p.padding{
+    background-color: #4e86cc;
+    padding: 0;
+}
+
+#group {
+    background-color: #aecdf2;
+}
+
+#delete {
+    background-color: #8c1c0d;
+    box-shadow: #300b05 1px 1px;
+}
+
+#delete:hover {
+    background-color: #781d0b;
+}
+
+
+/*Pie Chart Buttons*/
+#component-35 > div.image-container.svelte-dpdy90 > div > button > div > svg {
+    color: white;
+}
+
+#component-35 > div.image-container.svelte-dpdy90 > div > a > button > div > svg {
+    color: white;
+}
+
+/*Monthly Summary Container*/
+#component-21 > div.table-container.svelte-ikzfwo > div.table-wrap.svelte-ikzfwo.no-wrap {
+    border-color: #aecdf2;
+}
+
+/*Expense Table Container*/
+#component-21 > div.table-container.svelte-ikzfwo > div.table-wrap.svelte-ikzfwo.no-wrap > button > svelte-virtual-table-viewport > table {
+    max-height: 433px;
+}

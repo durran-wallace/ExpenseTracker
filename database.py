@@ -16,9 +16,11 @@ def build_db():
     c.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            cost REAL NOT NULL,
+            cost REAL NOT NULL CHECK (cost > 0),
             date TEXT NOT NULL,
-            category TEXT NOT NULL,
+            category TEXT NOT NULL CHECK (category IN (
+                'Rent/Mortgage', 'Utilities', 'Gas', 'Food', 'Entertainment', 'Savings', 'Insurance', 'Other'
+            )),
             description TEXT
         )
     """)
