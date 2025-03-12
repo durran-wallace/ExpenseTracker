@@ -105,16 +105,24 @@ def execute_delete(expense_id):
 
 # Function to cancel deletion
 def cancel_delete():
-    """Hide confirmation if user cancels"""
+    # Hide confirmation if user cancels
     return gr.update(visible=False), gr.update(visible=False), gr.update(visible=False)
 
 # Define a function to handle the form submission
 def handle_submission(description, date, cost, category):
     # If any field is empty
-    if not description or not date or not cost or not category:
-        # Re-fetch table & chart (e.g., default month/year)
+    if not description or not cost or not category:
+        # Re-fetch table & chart (default month/year)
         current_table, current_chart = fetch_expenses(month=current_month, year=current_year, category=None)
-        return ("❌ Please fill in all fields before submitting.", current_table, current_chart)
+        return ("❌ Please fill in all fields before submitting.", current_table, current_chart, date or "")
+    elif not date:
+        # Re-fetch table & chart (default month/year)
+        current_table, current_chart = fetch_expenses(month=current_month, year=current_year, category=None)
+        return ("❌ Please enter valid date using calendar date picker.", current_table, current_chart, date or "")
+    elif len(description) > 25:
+        # Re-fetch table & chart (default month/year)
+        current_table, current_chart = fetch_expenses(month=current_month, year=current_year, category=None)
+        return ("❌ No more than 25 characters may be entered for the description.", current_table, current_chart, date or "")
 
     # Otherwise, create a dictionary
     data = {
@@ -128,11 +136,11 @@ def handle_submission(description, date, cost, category):
     response = requests.post(f"{API_URL}/expense", json=data)
     if response.status_code == 201:
         updated_table, updated_chart = fetch_expenses()  # or pass current filters if you have them
-        return ("✅ Expense added successfully!", updated_table, updated_chart)
+        return ("✅ Expense added successfully!", updated_table, updated_chart, "")
     else:
         # Keep existing data if adding fails
         existing_table, existing_chart = fetch_expenses()
-        return ("❌ Error: Unable to add expense.", existing_table, existing_chart)
+        return ("❌ Error: Unable to add expense.", existing_table, existing_chart, date or "")
 
 
 # Function to create a pie chart with title including month and year
@@ -272,7 +280,7 @@ with gr.Blocks(css_paths="styles.css") as gui:
     submit_button.click(
         fn=handle_submission,
         inputs=[description_input, date_input, cost_input, category_input],
-        outputs=[submit_error_message, table_output, pie_chart_output]  # 3 outputs
+        outputs=[submit_error_message, table_output, pie_chart_output, date_input]  # 3 outputs
     )
 
     # Update Table, Pie Chart, and Monthly Summary when filtering

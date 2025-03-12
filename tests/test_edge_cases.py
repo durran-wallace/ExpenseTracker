@@ -7,7 +7,7 @@ DB_PATH = "expense_tracker.db"
 
 @pytest.fixture(scope="function")
 def setup_db():
-    """Setup and teardown for each test case."""
+    # Setup and teardown for each test case.
     build_db()  # Ensure DB exists before testing
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -16,7 +16,7 @@ def setup_db():
 
 
 def test_large_cost(setup_db):
-    """Test inserting a very large expense cost."""
+    # Test inserting a very large expense cost.
     conn, cursor = setup_db
     large_cost = 99999999.99
     cursor.execute(
@@ -30,34 +30,32 @@ def test_large_cost(setup_db):
 
 
 def test_empty_description(setup_db):
-    """Test inserting an expense with an empty description."""
+    # Test inserting an expense with an empty description should fail.
     conn, cursor = setup_db
-    cursor.execute(
-        "INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
-        (15.75, "2025-02-21", "Gas", ""),
-    )
-    conn.commit()
-    cursor.execute("SELECT description FROM expenses WHERE cost=15.75")
-    result = cursor.fetchone()
-    assert result is not None and result[0] == ""
+
+    with pytest.raises(sqlite3.IntegrityError):  # Expect failure due to NOT NULL constraint
+        cursor.execute(
+            "INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
+            (15.75, "2025-02-21", "Gas", ""),
+        )
+        conn.commit()
 
 
 def test_long_description(setup_db):
-    """Test inserting an expense with a very long description."""
+    # Test inserting an expense with a description longer than 25 characters
     conn, cursor = setup_db
     long_description = "A" * 300  # 300-character string
-    cursor.execute(
-        "INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
-        (20.00, "2025-02-22", "Entertainment", long_description),
-    )
-    conn.commit()
-    cursor.execute("SELECT description FROM expenses WHERE cost=20.00")
-    result = cursor.fetchone()
-    assert result is not None and len(result[0]) == 300
+
+    with pytest.raises(sqlite3.IntegrityError):  # Expect failure due to constraint
+        cursor.execute(
+            "INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
+            (20.00, "2025-02-22", "Entertainment", long_description),
+        )
+        conn.commit()
 
 
 def test_invalid_date():
-    """Test inserting an expense with an invalid date format."""
+    # Test inserting an expense with an invalid date format.
     invalid_data = {
         "cost": 50.00,
         "date": "2025-02-30",  # Invalid date (Feb 30 doesn't exist)
@@ -73,7 +71,7 @@ def test_invalid_date():
 
 
 def test_non_existent_id_deletion(setup_db):
-    """Test deleting an expense ID that does not exist."""
+    # Test deleting an expense ID that does not exist.
     conn, cursor = setup_db
     cursor.execute("DELETE FROM expenses WHERE id=99999")
     conn.commit()
@@ -83,7 +81,7 @@ def test_non_existent_id_deletion(setup_db):
 
 
 def test_invalid_category(setup_db):
-    """Test inserting an expense with a category not in the predefined list."""
+    # Test inserting an expense with a category not in the predefined list.
     conn, cursor = setup_db
     invalid_category = "RandomCategory"
     with pytest.raises(sqlite3.IntegrityError):
@@ -95,7 +93,15 @@ def test_invalid_category(setup_db):
 
 
 def test_concurrent_transactions():
-    """Test handling multiple inserts at the same time."""
+    # Test handling multiple inserts at the same time.
+
+    # Step 1: Clean up previous test data before inserting new records
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM expenses WHERE description='Concurrent test'")
+    conn.commit()
+    conn.close()
+
     def insert_expense():
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()

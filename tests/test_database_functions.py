@@ -6,10 +6,10 @@ DB_PATH = "expense_tracker.db"  # Path to the database file
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_database():
-    """Ensure the database is initialized before running tests."""
+    # Ensure the database is initialized before running tests.
     build_db()  # This will create the expenses table if it doesn’t exist
 
-# ✅ Test 1: Verify Data Persistence
+# Test 1: Verify Data Persistence
 def test_database_persistence():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -38,10 +38,12 @@ def test_database_persistence():
     conn.close()
 
 
-# ✅ Test 2: Ensure Unique IDs
+# Test 2: Ensure Unique IDs
 def test_unique_ids():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    cursor.execute("DELETE FROM expenses WHERE category=?", ("Entertainment",))
+    conn.commit()
 
     cursor.execute("INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
                    (20.00, "2025-02-21", "Entertainment", "Movie Ticket"))
@@ -61,7 +63,7 @@ def test_unique_ids():
     conn.close()
 
 
-# ✅ Test 3: Prevent Negative Costs
+# Test 3: Prevent Negative Costs
 def test_invalid_data():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()

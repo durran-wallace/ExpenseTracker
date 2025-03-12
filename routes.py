@@ -6,7 +6,7 @@ import werkzeug.serving
 
 app = Flask(__name__)
 
-# ✅ Security Configurations
+# Security Configurations
 app.config['CSP'] = (
     "default-src 'self'; "
     "script-src 'self'; "
@@ -18,20 +18,23 @@ app.config['CSP'] = (
 )
 
 
-# ✅ Apply Security Headers Globally
+# Apply Security Headers Globally
 @app.after_request
 def apply_security_headers(response):
-    response.headers["Content-Security-Policy"] = app.config['CSP']
-    response.headers["X-Content-Type-Options"] = "nosniff"
+    if "Content-Security-Policy" not in response.headers:
+        response.headers["Content-Security-Policy"] = app.config['CSP']
+    if "X-Content-Type-Options" not in response.headers:
+        response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
 
-# ✅ Suppress "Server" Header
+
+# Suppress "Server" Header
 werkzeug.serving.WSGIRequestHandler.server_version = "Secure-Server"
 werkzeug.serving.WSGIRequestHandler.sys_version = ""
 
 
-# ✅ Define Static Routes
+# Define Static Routes
 @app.route('/robots.txt')
 def robots():
     return "User-agent: *\nDisallow:", 200, {'Content-Type': 'text/plain'}
@@ -42,9 +45,9 @@ def sitemap():
     return "", 200, {'Content-Type': 'application/xml'}
 
 
-# ✅ Helper Functions
+# Helper Functions
 def validate_date(date_str):
-    """Ensures the date format is YYYY-MM-DD and is a valid date."""
+    # Ensures the date format is YYYY-MM-DD and is a valid date.
     try:
         parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
         return parsed_date.strftime("%Y-%m-%d")
@@ -53,7 +56,7 @@ def validate_date(date_str):
 
 
 def execute_query(query, params=(), fetch_one=False, fetch_all=False, commit=False):
-    """Handles common database interactions."""
+    # Handles common database interactions.
     conn = get_db_connection()
     cursor = conn.cursor()
     try:
@@ -71,7 +74,7 @@ def execute_query(query, params=(), fetch_one=False, fetch_all=False, commit=Fal
         conn.close()
 
 
-# ✅ Routes
+# Routes
 @app.route('/')
 def home():
     return jsonify({"message": "Expense Tracker API is running"}), 200
@@ -79,48 +82,97 @@ def home():
 
 @app.route('/expense', methods=['POST'])
 def add_expense():
-    data = request.json
-    cost = data.get('cost')
-    date = data.get('date')
-    category = data.get('category')
-    description = data.get('description', '')
+    try:
+        data = request.json
+        cost = data.get('cost')
+        date = data.get('date')
+        category = data.get('category')
+        description = data.get('description', '')
 
-    # Ensure required fields are provided
-    if cost is None or date is None or category is None:
-        return jsonify({"error": "Missing required fields: cost, date, category"}), 400
+        # Ensure required fields are provided
+        if cost is None or date is None or category is None:
+            return jsonify({"error": "Missing required fields: cost, date, category"}), 400
 
-    # Validate date format & ensure it's a real date
-    def validate_date(date_str):
+        # Validate description length
+        if len(description) > 25:
+            return jsonify({"error": "Description must be 25 characters or fewer."}), 400
+
+        # Ensure description is not empty
+        if not description:
+            return jsonify({"error": "Description cannot be empty."}), 400
+
+        # Validate date format & ensure it's a real date
+        def validate_date(date_str):
+            try:
+                parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
+                return parsed_date.strftime("%Y-%m-%d")  # Ensure YYYY-MM-DD format
+            except ValueError:
+                return None
+
+        # Convert Unix timestamp or validate string date
+        if isinstance(date, (int, float)):
+            formatted_date = datetime.fromtimestamp(date).strftime("%Y-%m-%d")
+        elif isinstance(date, str):
+            formatted_date = validate_date(date)
+            if formatted_date is None:
+                return jsonify({"error": "Invalid date format or non-existent date (e.g., 2025-02-30). Expected YYYY-MM-DD."}), 400
+        else:
+            return jsonify({"error": "Invalid date type. Expected string or timestamp."}), 400
+
+        # Insert into database
+        conn = get_db_connection()
         try:
-            parsed_date = datetime.strptime(date_str, "%Y-%m-%d")
-            return parsed_date.strftime("%Y-%m-%d")  # Ensure YYYY-MM-DD format
+            cursor = conn.cursor()
+            cursor.execute("INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
+                           (cost, formatted_date, category, description))
+
+            expense_id = cursor.lastrowid
+            conn.commit()
+            return jsonify({"message": "Expense added successfully", "id": expense_id}), 201
+        except sqlite3.Error as e:
+            return jsonify({"error": f"Database error: {str(e)}"}), 500
+        finally:
+            conn.close()
+
+    except Exception as e:
+        print("❌ Error:", str(e))  # ✅ Debugging Output
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/bulk_expense', methods=['POST'])
+def add_bulk_expenses():
+    data = request.json  # Expecting a list of expense objects
+    if not isinstance(data, list) or len(data) == 0:
+        return jsonify({"error": "Invalid input format. Expected a list of expenses."}), 400
+
+    formatted_data = []
+    for expense in data:
+        try:
+            cost = expense.get('cost')
+            date = expense.get('date')
+            category = expense.get('category')
+            description = expense.get('description', '')
+
+            if cost is None or date is None or category is None:
+                continue  # Skip invalid records
+
+            formatted_date = datetime.strptime(date, "%Y-%m-%d").strftime("%Y-%m-%d")
+            formatted_data.append((cost, formatted_date, category, description))
+
         except ValueError:
-            return None
+            continue  # Skip invalid date formats
 
-    # Convert Unix timestamp or validate string date
-    if isinstance(date, (int, float)):
-        formatted_date = datetime.fromtimestamp(date).strftime("%Y-%m-%d")
-    elif isinstance(date, str):
-        formatted_date = validate_date(date)
-        if formatted_date is None:
-            return jsonify({"error": "Invalid date format or non-existent date (e.g., 2025-02-30). Expected YYYY-MM-DD."}), 400
+    if formatted_data:
+        # ✅ Use `with` statement to ensure commit and close happen properly
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.executemany("INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
+                               formatted_data)
+            conn.commit()  # ✅ Commit all inserts at once
+
+        return jsonify({"message": f"Successfully inserted {len(formatted_data)} expenses"}), 201
     else:
-        return jsonify({"error": "Invalid date type. Expected string or timestamp."}), 400
+        return jsonify({"error": "No valid expenses to insert"}), 400
 
-    # Insert into database
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
-                   (cost, formatted_date, category, description))
-    expense_id = cursor.lastrowid
-    conn.commit()
-    # 🛠 Debug: Fetch the last inserted expense
-    cursor.execute("SELECT * FROM expenses ORDER BY id DESC LIMIT 1")
-    latest_expense = cursor.fetchone()
-    print("Latest expense in DB:", dict(latest_expense) if latest_expense else "No expense found")
-
-    conn.close()
-    return jsonify({"message": "Expense added successfully", "id": expense_id}), 201
 
 
 @app.route('/expenses', methods=['GET'])

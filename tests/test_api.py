@@ -1,5 +1,6 @@
 import pytest
 import requests
+import time
 
 API_URL = "http://127.0.0.1:5000"  # Ensure Flask server is running
 
@@ -28,13 +29,36 @@ def test_filter_expenses():
     assert isinstance(response.json(), list)
 
 # Test deleting an expense (DELETE /expense/<id>)
+
 def test_delete_expense():
-    expense_id = 1  # Ensure this ID exists in your test database
-    response = requests.delete(f"{API_URL}/expense/{expense_id}")
-    if response.status_code == 404:
-        assert response.json()["error"] == "Expense not found"
-    else:
-        assert response.status_code == 200
+    """Test dynamically creating and deleting an expense via API."""
+
+    # Create a test expense
+    test_expense = {
+        "description": "Temporary Delete Test",
+        "category": "Other",  # Ensure it's valid
+        "cost": 10.00,
+        "date": "2025-03-10"
+    }
+    create_response = requests.post(f"{API_URL}/expense", json=test_expense)
+    print("CREATE Response:", create_response.status_code, create_response.json())  # 🔍 Debug Output
+    assert create_response.status_code == 201, f"Failed to create test expense: {create_response.text}"
+
+    # Extract the created expense ID
+    expense_data = create_response.json()
+    print("Expense Data:", expense_data)  # Debugging Output
+    expense_id = expense_data.get("id")  # Check ID retrieval
+    assert expense_id is not None, "API did not return a valid expense ID"
+    print(f"✅ Created Expense ID: {expense_id}")
+
+
+    # Proceed with DELETE request
+    delete_response = requests.delete(f"{API_URL}/expense/{expense_id}")
+    print(f"DELETE Response for ID {expense_id}:", delete_response.status_code, delete_response.text)  # Debugging Output
+    assert delete_response.status_code == 200, f"Failed to delete expense ID {expense_id}"
+
+
+
 
 # Test deleting a non-existent expense (DELETE /expense/<invalid_id>)
 def test_delete_nonexistent_expense():
