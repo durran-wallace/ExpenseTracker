@@ -41,12 +41,10 @@ def test_delete_expense():
         "date": "2025-03-10"
     }
     create_response = requests.post(f"{API_URL}/expense", json=test_expense)
-    print("CREATE Response:", create_response.status_code, create_response.json())  # 🔍 Debug Output
     assert create_response.status_code == 201, f"Failed to create test expense: {create_response.text}"
 
     # Extract the created expense ID
     expense_data = create_response.json()
-    print("Expense Data:", expense_data)  # Debugging Output
     expense_id = expense_data.get("id")  # Check ID retrieval
     assert expense_id is not None, "API did not return a valid expense ID"
     print(f"✅ Created Expense ID: {expense_id}")
@@ -54,7 +52,6 @@ def test_delete_expense():
 
     # Proceed with DELETE request
     delete_response = requests.delete(f"{API_URL}/expense/{expense_id}")
-    print(f"DELETE Response for ID {expense_id}:", delete_response.status_code, delete_response.text)  # Debugging Output
     assert delete_response.status_code == 200, f"Failed to delete expense ID {expense_id}"
 
 

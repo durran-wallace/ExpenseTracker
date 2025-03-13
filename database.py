@@ -25,7 +25,7 @@ def build_db():
         )
     """)
 
-    # ✅ Add Indexing to Speed Up Queries
+    # Add Indexing to Speed Up Queries
     c.execute("CREATE INDEX IF NOT EXISTS idx_expense_date ON expenses(date);")
     c.execute("CREATE INDEX IF NOT EXISTS idx_expense_category ON expenses(category);")
 

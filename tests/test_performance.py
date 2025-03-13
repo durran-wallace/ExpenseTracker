@@ -6,7 +6,7 @@ import time
 API_URL = "http://127.0.0.1:5000"
 
 
-# 🔹 1️⃣ Benchmark Adding an Expense
+# Benchmark Adding an Expense
 @pytest.mark.benchmark
 def test_add_expense_performance(benchmark):
     # Test how long it takes to add an expense.
@@ -21,14 +21,14 @@ def test_add_expense_performance(benchmark):
     assert result.status_code == 201
 
 
-# 🔹 2️⃣ Benchmark Fetching Expenses (Simulating Load)
+# Benchmark Fetching Expenses (Simulating Load)
 @pytest.mark.benchmark
 def test_fetch_expenses_performance(benchmark):
     # Test how long it takes to fetch all expenses.
     result = benchmark(lambda: requests.get(f"{API_URL}/expenses?month=3&year=2025"))
     assert result.status_code == 200
 
-# 🔹 4️⃣ Load Testing: Adding Multiple Expenses
+# Load Testing: Adding Multiple Expenses
 @pytest.mark.benchmark
 @pytest.mark.parametrize("num_requests", [10, 50, 100])  # Test different load levels
 def test_bulk_add_expenses(benchmark, num_requests):
@@ -46,7 +46,7 @@ def test_bulk_add_expenses(benchmark, num_requests):
     benchmark(bulk_insert)
 
 
-# 🔹 5️⃣ Load Testing: Fetching Large Dataset
+# Load Testing: Fetching Large Dataset
 @pytest.mark.benchmark
 @pytest.mark.parametrize("month, year", [(3, 2025), (12, 2024)])  # Test multiple dates
 def test_bulk_fetch_expenses(benchmark, month, year):

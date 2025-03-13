@@ -135,7 +135,6 @@ def add_expense():
             conn.close()
 
     except Exception as e:
-        print("❌ Error:", str(e))  # ✅ Debugging Output
         return jsonify({"error": str(e)}), 500
 
 @app.route('/bulk_expense', methods=['POST'])
@@ -162,12 +161,12 @@ def add_bulk_expenses():
             continue  # Skip invalid date formats
 
     if formatted_data:
-        # ✅ Use `with` statement to ensure commit and close happen properly
+        # Use `with` statement to ensure commit and close happen properly
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.executemany("INSERT INTO expenses (cost, date, category, description) VALUES (?, ?, ?, ?)",
                                formatted_data)
-            conn.commit()  # ✅ Commit all inserts at once
+            conn.commit()
 
         return jsonify({"message": f"Successfully inserted {len(formatted_data)} expenses"}), 201
     else:
