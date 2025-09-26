@@ -26,7 +26,7 @@ A full-stack Python application that allows users to input, filter, and delete e
 
 ## Screenshots / Walkthrough
 
-![Full Screen] (screenshots/full_screen.png)
+![Full Screen](screenshots/full_screen.png)
 
 ### 1. Add an Expense
 ![Add Expense Form](screenshots/add_expense_form.png)  
