@@ -1,18 +1,19 @@
 # Expense Tracker
 
-A full-stack application that allows users to input, filter, and delete expenses. The project features a Flask API, a Gradio UI, and a SQLite database for data storage.
+A full-stack web application for managing personal finances. Users can record expenses, analyze spending patterns, and maintain control over monthly budgets through interactive visualizations.
 
-Features
-- Input, View, Filter, and Delete Expenses
-- Pie Chart & Monthly Summary detailing how expenses are proportioned among categories each month
-- Secure API with CSP & Security Headers
-- Functional, Performance & Security Testing using `pytest` & `OWASP Zap`
+Features -
 
----
+Expense Management:    Add, view, filter, and delete expenses.
+Analytics Dashboard:   Monthly summaries with interactive pie charts (Plotly).
+Security First:        Flask API hardened with CSP & security headers.
+Testing Coverage:      Functional, performance, and security testing with pytest and OWASP Zap.
 
-Technologies Stack
-- Frontend: Gradio
-- Backend: Flask
-- Database: SQLite
-- Data Visualization: Plotly (Pie Charts)
-- Testing: pytest, pytest-benchmark, OWASP Zap (Security Testing)
+Tech Stack -
+
+Frontend:              Gradio
+Backend:               Flask
+Database:              SQLite
+Visualization:         Plotly
+
+Testing -              PyTest, PyTest-Benchmark, OWASP Zap
